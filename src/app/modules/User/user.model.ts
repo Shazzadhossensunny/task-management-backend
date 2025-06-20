@@ -1,9 +1,12 @@
-import { Schema, model } from 'mongoose';
+import { Schema, model, Model } from 'mongoose';
 import bcrypt from 'bcrypt';
-import { TUser } from './user.interface';
+import { IUser, IUserMethods, IUserModel, TUserRole } from './user.interface';
 import config from '../../config';
 
-const userSchema = new Schema<TUser>(
+// Create interface for User model
+type UserModelType = Model<IUser, {}, IUserMethods> & IUserModel;
+
+const userSchema = new Schema<IUser, UserModelType>(
   {
     name: {
       type: String,
@@ -21,12 +24,15 @@ const userSchema = new Schema<TUser>(
     password: {
       type: String,
       required: [true, 'Password is required'],
-      select: 0,
+      select: false,
       minlength: [6, 'Password must be at least 6 characters'],
     },
     role: {
       type: String,
-      enum: ['admin', 'user'],
+      enum: {
+        values: ['admin', 'user'] as TUserRole[],
+        message: 'Role must be either admin or user',
+      },
       default: 'user',
     },
     isActive: {
@@ -36,6 +42,7 @@ const userSchema = new Schema<TUser>(
     points: {
       type: Number,
       default: 0,
+      min: [0, 'Points cannot be negative'],
     },
     profileImage: {
       type: String,
@@ -57,13 +64,17 @@ const userSchema = new Schema<TUser>(
   },
 );
 
+// Indexes
+userSchema.index({ email: 1 });
+userSchema.index({ role: 1 });
+
 // Pre save middleware for password hashing
 userSchema.pre('save', async function (next) {
   if (!this.isModified('password')) return next();
 
   this.password = await bcrypt.hash(
     this.password,
-    Number(config.bcrypt_salt_rounds),
+    Number(config.bcrypt_salt_round || 10),
   );
   next();
 });
@@ -101,4 +112,4 @@ userSchema.methods.addPoints = function (points: number) {
   return this.save();
 };
 
-export const User = model<TUser>('User', userSchema);
+export const User = model<IUser, UserModelType>('User', userSchema);

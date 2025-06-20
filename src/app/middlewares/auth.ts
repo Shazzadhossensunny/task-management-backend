@@ -1,10 +1,11 @@
 import { NextFunction, Request, Response } from 'express';
 import jwt, { JwtPayload } from 'jsonwebtoken';
-import { TUserRole } from '../modules/User/user.interface';
+
 import catchAsync from '../utils/catchAsync';
 import AppError from '../errors/AppError';
 import { StatusCodes } from 'http-status-codes';
 import config from '../config';
+import { TUserRole } from '../modules/User/user.interface';
 import { User } from '../modules/User/user.model';
 
 const auth = (...requiredRoles: TUserRole[]) => {

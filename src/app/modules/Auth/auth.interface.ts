@@ -19,3 +19,16 @@ export type TChangePassword = {
   newPassword: string;
   confirmPassword: string;
 };
+
+export type TJwtPayload = {
+  userId: string;
+  email: string;
+  role: 'admin' | 'user';
+  iat?: number;
+  exp?: number;
+};
+
+export type TTokens = {
+  accessToken: string;
+  refreshToken: string;
+};
