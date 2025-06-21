@@ -1,7 +1,7 @@
 import { Schema, model } from 'mongoose';
-import { TTask, TTaskCategory, TTaskStatus } from './task.interface';
+import { ITask, TASK_CATEGORIES, TASK_STATUS } from './task.interface';
 
-const taskSchema = new Schema<TTask>(
+const taskSchema = new Schema<ITask>(
   {
     title: {
       type: String,
@@ -17,25 +17,18 @@ const taskSchema = new Schema<TTask>(
     },
     category: {
       type: String,
-      required: [true, 'Category is required'],
+      required: [true, 'Task category is required'],
       enum: {
-        values: [
-          'arts_and_craft',
-          'nature',
-          'family',
-          'sport',
-          'friends',
-          'meditation',
-        ],
-        message:
-          'Category must be one of: arts_and_craft, nature, family, sport, friends, meditation',
+        values: TASK_CATEGORIES,
+        message: `Category must be one of: ${TASK_CATEGORIES.join(', ')}`,
       },
     },
     status: {
       type: String,
+      required: true,
       enum: {
-        values: ['pending', 'inprogress', 'done'],
-        message: 'Status must be one of: pending, inprogress, done',
+        values: TASK_STATUS,
+        message: `Status must be one of: ${TASK_STATUS.join(', ')}`,
       },
       default: 'pending',
     },
@@ -46,9 +39,12 @@ const taskSchema = new Schema<TTask>(
     },
     dueDate: {
       type: Date,
-    },
-    completedAt: {
-      type: Date,
+      validate: {
+        validator: function (value: Date) {
+          return !value || value > new Date();
+        },
+        message: 'Due date must be in the future',
+      },
     },
     points: {
       type: Number,
@@ -56,64 +52,22 @@ const taskSchema = new Schema<TTask>(
       min: [1, 'Points must be at least 1'],
       max: [100, 'Points cannot exceed 100'],
     },
-    isCollaborative: {
-      type: Boolean,
-      default: false,
-    },
-    collaborators: [
-      {
-        type: Schema.Types.ObjectId,
-        ref: 'User',
-      },
-    ],
   },
   {
     timestamps: true,
-    versionKey: false,
+    toJSON: {
+      virtuals: true,
+      transform: function (doc, ret) {
+        delete ret.__v;
+        return ret;
+      },
+    },
   },
 );
 
-// Indexes for better query performance
 taskSchema.index({ userId: 1, status: 1 });
-taskSchema.index({ userId: 1, category: 1 });
-taskSchema.index({ userId: 1, createdAt: -1 });
+taskSchema.index({ category: 1 });
+taskSchema.index({ createdAt: -1 });
 taskSchema.index({ title: 'text', description: 'text' });
 
-// Pre middleware to set completedAt when status changes to done
-taskSchema.pre('findOneAndUpdate', function () {
-  const update = this.getUpdate() as any;
-  if (update.status === 'done' && !update.completedAt) {
-    update.completedAt = new Date();
-  }
-  if (update.status !== 'done') {
-    update.completedAt = undefined;
-  }
-});
-
-// Static methods
-taskSchema.statics.findByUserId = function (userId: string) {
-  return this.find({ userId });
-};
-
-taskSchema.statics.findByCategory = function (category: TTaskCategory) {
-  return this.find({ category });
-};
-
-taskSchema.statics.findByStatus = function (status: TTaskStatus) {
-  return this.find({ status });
-};
-
-taskSchema.statics.getTaskStats = function (userId: string) {
-  return this.aggregate([
-    { $match: { userId: new Schema.Types.ObjectId(userId) } },
-    {
-      $group: {
-        _id: '$status',
-        count: { $sum: 1 },
-        totalPoints: { $sum: '$points' },
-      },
-    },
-  ]);
-};
-
-export const Task = model<TTask>('Task', taskSchema);
+export const Task = model<ITask>('Task', taskSchema);
