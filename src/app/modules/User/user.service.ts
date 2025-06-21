@@ -24,13 +24,6 @@ const registerUser = async (payload: TRegisterUser) => {
     );
   }
 
-  // Create new user
-  // const userData = {
-  //   name: payload.name,
-  //   email: payload.email,
-  //   password: payload.password,
-  // };
-
   const result = await User.create(payload);
 
   // Return user without password
@@ -73,9 +66,9 @@ const changePassword = async (userId: string, payload: TChangePassword) => {
   }
 
   // Check if passwords match
-  if (payload.newPassword !== payload.confirmPassword) {
-    throw new AppError(StatusCodes.BAD_REQUEST, 'New passwords do not match');
-  }
+  // if (payload.newPassword !== payload.confirmPassword) {
+  //   throw new AppError(StatusCodes.BAD_REQUEST, 'New passwords do not match');
+  // }
 
   // Get user with password
   const user = await User.findById(userId).select('+password');

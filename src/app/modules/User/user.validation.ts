@@ -28,14 +28,13 @@ export const updateProfileValidationSchema = z.object({
 });
 
 export const changePasswordValidationSchema = z.object({
-  oldPassword: z
-    .string({ required_error: 'Old password is required' })
-    .min(1, 'Old password cannot be empty'),
-  newPassword: z
-    .string({ required_error: 'New password is required' })
-    .min(6, 'New password must be at least 6 characters'),
-  confirmPassword: z.string({
-    required_error: 'Confirm password is required',
+  body: z.object({
+    oldPassword: z
+      .string({ required_error: 'Old password is required' })
+      .min(6, 'Old password cannot be empty'),
+    newPassword: z
+      .string({ required_error: 'New password is required' })
+      .min(6, 'New password must be at least 6 characters'),
   }),
 });
 
