@@ -1,18 +1,15 @@
 import { Router } from 'express';
 import { UserControllers } from './user.controller';
-import { UserValidation } from './user.validation';
-import validateRequest from '../../middlewares/validateRequest';
+
 import auth from '../../middlewares/auth';
 import { USER_ROLE } from './user.interface';
+import validateRequest from '../../middlewares/validateRequest';
+import { UserValidation } from './user.validation';
 
 const router = Router();
 
 // Public routes
-router.post(
-  '/register',
-  validateRequest(UserValidation.registerUserValidationSchema),
-  UserControllers.registerUser,
-);
+router.post('/register', UserControllers.registerUser);
 
 // Protected routes (require authentication)
 router.get(

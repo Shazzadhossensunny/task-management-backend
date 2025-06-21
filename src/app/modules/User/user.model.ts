@@ -60,13 +60,12 @@ const userSchema = new Schema<IUser, UserModelType>(
   },
   {
     timestamps: true,
-    versionKey: false,
   },
 );
 
-// Indexes
-userSchema.index({ email: 1 });
-userSchema.index({ role: 1 });
+// // Indexes
+// userSchema.index({ email: 1 });
+// userSchema.index({ role: 1 });
 
 // Pre save middleware for password hashing
 userSchema.pre('save', async function (next) {

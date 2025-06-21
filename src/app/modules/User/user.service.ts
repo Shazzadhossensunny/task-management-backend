@@ -11,9 +11,9 @@ import { User } from './user.model';
 
 const registerUser = async (payload: TRegisterUser) => {
   // Check if passwords match
-  if (payload.password !== payload.confirmPassword) {
-    throw new AppError(StatusCodes.BAD_REQUEST, 'Passwords do not match');
-  }
+  // if (payload.password !== payload.confirmPassword) {
+  //   throw new AppError(StatusCodes.BAD_REQUEST, 'Passwords do not match');
+  // }
 
   // Check if user already exists
   const existingUser = await User.findOne({ email: payload.email });
@@ -25,13 +25,13 @@ const registerUser = async (payload: TRegisterUser) => {
   }
 
   // Create new user
-  const userData = {
-    name: payload.name,
-    email: payload.email,
-    password: payload.password,
-  };
+  // const userData = {
+  //   name: payload.name,
+  //   email: payload.email,
+  //   password: payload.password,
+  // };
 
-  const result = await User.create(userData);
+  const result = await User.create(payload);
 
   // Return user without password
   const user = await User.findById(result._id).select('-password');

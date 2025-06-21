@@ -7,6 +7,8 @@ import { UserServices } from './user.service';
 const registerUser = catchAsync(async (req: Request, res: Response) => {
   const result = await UserServices.registerUser(req.body);
 
+  console.log(result);
+
   sendResponse(res, {
     statusCode: StatusCodes.CREATED,
     success: true,

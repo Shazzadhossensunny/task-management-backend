@@ -28,8 +28,9 @@ const loginUser = catchAsync(async (req: Request, res: Response) => {
 });
 
 const refreshToken = catchAsync(async (req: Request, res: Response) => {
-  const { refreshToken } = req.cookies;
-  const result = await AuthServices.refreshToken(refreshToken);
+  // const { refreshToken } = req.cookies;
+  const { authorization } = req.headers;
+  const result = await AuthServices.refreshToken(authorization as string);
 
   sendResponse(res, {
     statusCode: StatusCodes.OK,
