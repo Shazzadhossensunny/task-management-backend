@@ -10,6 +10,7 @@ import {
 } from './task.interface';
 import AppError from '../../errors/AppError';
 import { StatusCodes } from 'http-status-codes';
+import QueryBuilder from '../../builder/QueryBuilder';
 
 export const createTask = async (
   userId: string,
@@ -25,45 +26,26 @@ export const createTask = async (
 };
 
 export const getTasks = async (userId: string, query: ITaskQuery) => {
-  const page = Number(query.page) || 1;
-  const limit = Number(query.limit) || 10;
-  const skip = (page - 1) * limit;
-
   const filter: any = { userId: new Types.ObjectId(userId) };
 
-  if (query.category) filter.category = query.category;
-  if (query.status) filter.status = query.status;
+  const taskQuery = new QueryBuilder(
+    Task.find(filter),
+    query as Record<string, unknown>,
+  )
+    .search(['title', 'description']) // Searchable fields for Task
+    .filter()
+    .sort()
+    .paginate()
+    .fields();
 
-  if (query.search) {
-    filter.$or = [
-      { title: { $regex: query.search, $options: 'i' } },
-      { description: { $regex: query.search, $options: 'i' } },
-    ];
-  }
-
-  const sort: any = {};
-  if (query.sortBy) {
-    sort[query.sortBy] = query.sortOrder === 'asc' ? 1 : -1;
-  } else {
-    sort.createdAt = -1;
-  }
-
-  const [tasks, total] = await Promise.all([
-    Task.find(filter).sort(sort).skip(skip).limit(limit).lean(),
-    Task.countDocuments(filter),
-  ]);
+  const meta = await taskQuery.countTotal();
+  const result = await taskQuery.modelQuery.lean(); // lean() for plain JS object
 
   return {
-    tasks,
-    pagination: {
-      page,
-      limit,
-      total,
-      pages: Math.ceil(total / limit),
-    },
+    meta,
+    result,
   };
 };
-
 export const getTaskById = async (
   userId: string,
   taskId: string,
