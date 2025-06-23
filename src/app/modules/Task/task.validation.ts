@@ -5,31 +5,31 @@ const taskCategorySchema = z.enum([
   ...(TASK_CATEGORIES as [string, ...string[]]),
 ]);
 
-const taskStatusSchema = z.enum([...(TASK_STATUS as [string, ...string[]])]);
-
 export const createTaskValidationSchema = z.object({
-  title: z
-    .string({ required_error: 'Title is required' })
-    .min(1, 'Title cannot be empty')
-    .max(100, 'Title cannot exceed 100 characters')
-    .trim(),
-  description: z
-    .string({ required_error: 'Description is required' })
-    .min(1, 'Description cannot be empty')
-    .max(500, 'Description cannot exceed 500 characters')
-    .trim(),
-  category: taskCategorySchema,
-  dueDate: z
-    .string()
-    .optional()
-    .refine((date) => !date || new Date(date) > new Date(), {
-      message: 'Due date must be in the future',
-    }),
-  points: z
-    .number()
-    .min(1, 'Points must be at least 1')
-    .max(100, 'Points cannot exceed 100')
-    .optional(),
+  body: z.object({
+    title: z
+      .string({ required_error: 'Title is required' })
+      .min(1, 'Title cannot be empty')
+      .max(100, 'Title cannot exceed 100 characters')
+      .trim(),
+    description: z
+      .string({ required_error: 'Description is required' })
+      .min(1, 'Description cannot be empty')
+      .max(500, 'Description cannot exceed 500 characters')
+      .trim(),
+    category: taskCategorySchema,
+    dueDate: z
+      .string()
+      .optional()
+      .refine((date) => !date || new Date(date) > new Date(), {
+        message: 'Due date must be in the future',
+      }),
+    points: z
+      .number()
+      .min(1, 'Points must be at least 1')
+      .max(100, 'Points cannot exceed 100')
+      .optional(),
+  }),
 });
 
 export const updateTaskValidationSchema = z.object({
@@ -46,7 +46,9 @@ export const updateTaskValidationSchema = z.object({
     .trim()
     .optional(),
   category: taskCategorySchema.optional(),
-  status: taskStatusSchema.optional(),
+  status: z
+    .enum(['pending', 'inprogress', 'done', 'collaborativeTask'])
+    .optional(),
   dueDate: z
     .string()
     .optional()
@@ -61,7 +63,9 @@ export const updateTaskValidationSchema = z.object({
 });
 
 export const updateTaskStatusValidationSchema = z.object({
-  status: taskStatusSchema,
+  body: z.object({
+    status: z.enum(['pending', 'inprogress', 'done', 'collaborativeTask']),
+  }),
 });
 
 export const getTasksValidationSchema = z.object({
@@ -74,7 +78,9 @@ export const getTasksValidationSchema = z.object({
     .optional()
     .refine((val) => !val || !isNaN(Number(val)), 'Limit must be a number'),
   category: taskCategorySchema.optional(),
-  status: taskStatusSchema.optional(),
+  status: z
+    .enum(['pending', 'inprogress', 'done', 'collaborativeTask'])
+    .optional(),
   search: z.string().optional(),
   sortBy: z
     .enum(['createdAt', 'updatedAt', 'title', 'dueDate', 'points'])

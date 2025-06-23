@@ -57,17 +57,13 @@ const taskSchema = new Schema<ITask>(
     timestamps: true,
     toJSON: {
       virtuals: true,
-      transform: function (doc, ret) {
-        delete ret.__v;
-        return ret;
-      },
     },
   },
 );
 
-taskSchema.index({ userId: 1, status: 1 });
-taskSchema.index({ category: 1 });
-taskSchema.index({ createdAt: -1 });
-taskSchema.index({ title: 'text', description: 'text' });
+// taskSchema.index({ userId: 1, status: 1 });
+// taskSchema.index({ category: 1 });
+// taskSchema.index({ createdAt: -1 });
+// taskSchema.index({ title: 'text', description: 'text' });
 
 export const Task = model<ITask>('Task', taskSchema);

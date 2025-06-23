@@ -5,14 +5,16 @@ import sendResponse from '../../utils/sendResponse';
 import { TaskServices } from './task.service';
 
 const createTask = catchAsync(async (req: Request, res: Response) => {
-  const userId = req.user?.userId!;
-  const task = await TaskServices.createTask(userId, req.body);
+  const result = await TaskServices.createTask({
+    ...req.body,
+    userId: req.user.userId,
+  });
 
   sendResponse(res, {
     statusCode: StatusCodes.CREATED,
     success: true,
     message: 'Task created successfully',
-    data: task,
+    data: result,
   });
 });
 

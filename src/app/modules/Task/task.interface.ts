@@ -8,7 +8,11 @@ export type TTaskCategory =
   | 'friends'
   | 'meditation';
 
-export type TTaskStatus = 'pending' | 'inprogress' | 'done';
+export type TTaskStatus =
+  | 'pending'
+  | 'inprogress'
+  | 'done'
+  | 'collaborativeTask';
 
 export interface ITask extends Document {
   _id: Types.ObjectId;
@@ -59,4 +63,9 @@ export const TASK_CATEGORIES: TTaskCategory[] = [
   'meditation',
 ];
 
-export const TASK_STATUS: TTaskStatus[] = ['pending', 'inprogress', 'done'];
+export const TASK_STATUS: TTaskStatus[] = [
+  'pending',
+  'inprogress',
+  'done',
+  'collaborativeTask',
+];

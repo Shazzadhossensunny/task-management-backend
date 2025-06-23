@@ -31,7 +31,7 @@ router.get(
 
 router.get('/:id', auth(USER_ROLE.user), TaskControllers.getTaskById);
 
-router.put(
+router.patch(
   '/:id',
   auth(USER_ROLE.user),
   validateRequest(TaskValidation.updateTaskValidationSchema),
@@ -47,4 +47,4 @@ router.patch(
 
 router.delete('/:id', auth(USER_ROLE.user), TaskControllers.deleteTask);
 
-export default router;
+export const TasksRoutes = router;

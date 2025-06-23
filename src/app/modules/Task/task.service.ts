@@ -12,17 +12,9 @@ import AppError from '../../errors/AppError';
 import { StatusCodes } from 'http-status-codes';
 import QueryBuilder from '../../builder/QueryBuilder';
 
-export const createTask = async (
-  userId: string,
-  taskData: ITaskCreate,
-): Promise<ITask> => {
-  const task = new Task({
-    ...taskData,
-    userId: new Types.ObjectId(userId),
-    dueDate: taskData.dueDate ? new Date(taskData.dueDate) : undefined,
-  });
-
-  return await task.save();
+export const createTask = async (taskData: ITaskCreate) => {
+  const result = await Task.create(taskData);
+  return result;
 };
 
 export const getTasks = async (userId: string, query: ITaskQuery) => {
@@ -32,14 +24,14 @@ export const getTasks = async (userId: string, query: ITaskQuery) => {
     Task.find(filter),
     query as Record<string, unknown>,
   )
-    .search(['title', 'description']) // Searchable fields for Task
+    .search(['title', 'description'])
     .filter()
     .sort()
     .paginate()
     .fields();
 
   const meta = await taskQuery.countTotal();
-  const result = await taskQuery.modelQuery.lean(); // lean() for plain JS object
+  const result = await taskQuery.modelQuery.lean();
 
   return {
     meta,
