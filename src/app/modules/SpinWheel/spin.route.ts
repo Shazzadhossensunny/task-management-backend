@@ -14,28 +14,4 @@ router.post(
   SpinControllers.spinWheel,
 );
 
-router.post(
-  '/complete',
-  auth(USER_ROLE.user),
-  validateRequest(SpinValidation.completeSpinValidationSchema),
-  SpinControllers.completeSpin,
-);
-
-router.get(
-  '/history',
-  auth(USER_ROLE.user),
-  validateRequest(SpinValidation.getSpinHistoryValidationSchema),
-  SpinControllers.getSpinHistory,
-);
-
-router.get('/pending', auth(USER_ROLE.user), SpinControllers.getPendingSpins);
-
-router.get(
-  '/stats/category',
-  auth(USER_ROLE.user),
-  SpinControllers.getSpinsByCategory,
-);
-
-router.delete('/:id', auth(USER_ROLE.user), SpinControllers.deleteSpinResult);
-
-export default router;
+export const SpinRoutes = router;

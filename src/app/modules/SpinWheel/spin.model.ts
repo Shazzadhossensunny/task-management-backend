@@ -43,17 +43,9 @@ const spinResultSchema = new Schema<ISpinResult>(
     timestamps: true,
     toJSON: {
       virtuals: true,
-      transform: function (doc, ret) {
-        delete ret.__v;
-        return ret;
-      },
     },
   },
 );
-
-spinResultSchema.index({ userId: 1, spinDate: -1 });
-spinResultSchema.index({ userId: 1, isCompleted: 1 });
-spinResultSchema.index({ category: 1 });
 
 spinResultSchema.virtual('task', {
   ref: 'Task',

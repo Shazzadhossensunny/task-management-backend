@@ -17,16 +17,33 @@ export const spinWheel = async (
 ): Promise<ISpinResponse> => {
   const { categories = [], excludeCompleted = true } = spinData;
 
+  // Validate that at least one category is selected
+  if (categories.length === 0) {
+    throw new AppError(
+      StatusCodes.BAD_REQUEST,
+      'Please select at least one category to spin the wheel.',
+    );
+  }
+
+  // Validate categories
+  const invalidCategories = categories.filter(
+    (cat) => !SPIN_CATEGORIES.includes(cat),
+  );
+  if (invalidCategories.length > 0) {
+    throw new AppError(
+      StatusCodes.BAD_REQUEST,
+      `Invalid categories: ${invalidCategories.join(', ')}`,
+    );
+  }
+
   const taskFilter: any = {
     userId: new Types.ObjectId(userId),
     status: { $ne: 'done' },
+    category: { $in: categories }, // Only search in selected categories
   };
 
-  if (categories.length > 0) {
-    taskFilter.category = { $in: categories };
-  }
-
   if (excludeCompleted) {
+    // Get recent incomplete spins from last 24 hours
     const recentSpins = await SpinResult.find({
       userId: new Types.ObjectId(userId),
       isCompleted: false,
@@ -44,13 +61,37 @@ export const spinWheel = async (
   if (availableTasks.length === 0) {
     throw new AppError(
       StatusCodes.BAD_REQUEST,
-      'No available tasks to spin. Try creating new tasks or completing existing spins.',
+      'No available tasks found in the selected categories. Try creating new tasks or selecting different categories.',
     );
   }
 
+  // Randomly select a task
   const randomIndex = Math.floor(Math.random() * availableTasks.length);
   const selectedTask = availableTasks[randomIndex];
 
+  // Check if there's already a pending spin for this task
+  const existingPendingSpin = await SpinResult.findOne({
+    userId: new Types.ObjectId(userId),
+    taskId: selectedTask._id,
+    isCompleted: false,
+  });
+
+  if (existingPendingSpin && excludeCompleted) {
+    // If there's already a pending spin, return it instead of creating a new one
+    return {
+      task: {
+        _id: selectedTask._id,
+        title: selectedTask.title,
+        description: selectedTask.description,
+        category: selectedTask.category,
+        points: selectedTask.points,
+      },
+      spinResult: existingPendingSpin,
+      message: `You have a pending task from ${selectedTask.category.replace('-', ' & ')} category! Complete this task to earn ${selectedTask.points} points.`,
+    };
+  }
+
+  // Create new spin result
   const spinResult = new SpinResult({
     userId: new Types.ObjectId(userId),
     taskId: selectedTask._id,
@@ -69,190 +110,10 @@ export const spinWheel = async (
       points: selectedTask.points,
     },
     spinResult,
-    message: `You spun ${selectedTask.category.replace('-', ' & ')} category! Complete this task to earn ${selectedTask.points} points.`,
+    message: `🎉 You spun ${selectedTask.category.replace('-', ' & ')} category! Complete this task to earn ${selectedTask.points} points.`,
   };
-};
-
-export const completeSpin = async (
-  userId: string,
-  spinResultId: string,
-): Promise<ISpinResult> => {
-  if (!Types.ObjectId.isValid(spinResultId)) {
-    throw new AppError(StatusCodes.BAD_REQUEST, 'Invalid spin result ID');
-  }
-
-  const spinResult = await SpinResult.findOne({
-    _id: new Types.ObjectId(spinResultId),
-    userId: new Types.ObjectId(userId),
-    isCompleted: false,
-  }).populate('taskId');
-
-  if (!spinResult) {
-    throw new AppError(
-      StatusCodes.NOT_FOUND,
-      'Spin result not found or already completed',
-    );
-  }
-
-  const task = await Task.findById(spinResult.taskId);
-  if (!task) {
-    throw new AppError(StatusCodes.NOT_FOUND, 'Associated task not found');
-  }
-
-  task.status = 'done';
-  await task.save();
-
-  spinResult.isCompleted = true;
-  spinResult.completedAt = new Date();
-  spinResult.pointsEarned = task.points;
-  await spinResult.save();
-
-  return spinResult;
-};
-
-export const getSpinHistory = async (
-  userId: string,
-  query: any,
-): Promise<ISpinHistory> => {
-  const page = Number(query.page) || 1;
-  const limit = Number(query.limit) || 10;
-  const skip = (page - 1) * limit;
-
-  const filter: any = { userId: new Types.ObjectId(userId) };
-
-  if (query.category) filter.category = query.category;
-  if (query.completed !== undefined) {
-    filter.isCompleted = query.completed === 'true';
-  }
-
-  const [spinResults, totalSpins] = await Promise.all([
-    SpinResult.find(filter)
-      .populate({
-        path: 'taskId',
-        select: 'title description category points status',
-      })
-      .sort({ spinDate: -1 })
-      .skip(skip)
-      .limit(limit),
-    SpinResult.countDocuments(filter),
-  ]);
-
-  const stats = await getSpinStats(userId);
-
-  return {
-    spinResults,
-    stats: {
-      totalSpins,
-      ...stats,
-    },
-  };
-};
-
-export const getSpinStats = async (userId: string) => {
-  const [completedSpins, totalPointsEarned, categoryStats] = await Promise.all([
-    SpinResult.countDocuments({
-      userId: new Types.ObjectId(userId),
-      isCompleted: true,
-    }),
-    SpinResult.aggregate([
-      { $match: { userId: new Types.ObjectId(userId), isCompleted: true } },
-      { $group: { _id: null, total: { $sum: '$pointsEarned' } } },
-    ]),
-    SpinResult.aggregate([
-      { $match: { userId: new Types.ObjectId(userId) } },
-      {
-        $group: {
-          _id: '$category',
-          count: { $sum: 1 },
-        },
-      },
-      { $sort: { count: -1 } },
-      { $limit: 1 },
-    ]),
-  ]);
-
-  const totalPoints = totalPointsEarned[0]?.total || 0;
-  const favoriteCategory = categoryStats[0]?._id || 'none';
-
-  return {
-    completedSpins,
-    totalPointsEarned: totalPoints,
-    favoriteCategory,
-  };
-};
-
-export const getPendingSpins = async (
-  userId: string,
-): Promise<ISpinResult[]> => {
-  return SpinResult.find({
-    userId: new Types.ObjectId(userId),
-    isCompleted: false,
-  })
-    .populate({
-      path: 'taskId',
-      select: 'title description category points status',
-    })
-    .sort({ spinDate: -1 });
-};
-
-export const getSpinsByCategory = async (userId: string): Promise<any> => {
-  return SpinResult.aggregate([
-    { $match: { userId: new Types.ObjectId(userId) } },
-    {
-      $group: {
-        _id: '$category',
-        totalSpins: { $sum: 1 },
-        completedSpins: {
-          $sum: { $cond: ['$isCompleted', 1, 0] },
-        },
-        totalPoints: {
-          $sum: { $cond: ['$isCompleted', '$pointsEarned', 0] },
-        },
-      },
-    },
-    {
-      $project: {
-        category: '$_id',
-        totalSpins: 1,
-        completedSpins: 1,
-        totalPoints: 1,
-        completionRate: {
-          $multiply: [{ $divide: ['$completedSpins', '$totalSpins'] }, 100],
-        },
-      },
-    },
-    { $sort: { totalSpins: -1 } },
-  ]);
-};
-
-export const deleteSpinResult = async (
-  userId: string,
-  spinResultId: string,
-): Promise<void> => {
-  if (!Types.ObjectId.isValid(spinResultId)) {
-    throw new AppError(StatusCodes.BAD_REQUEST, 'Invalid spin result ID');
-  }
-
-  const spinResult = await SpinResult.findOneAndDelete({
-    _id: new Types.ObjectId(spinResultId),
-    userId: new Types.ObjectId(userId),
-    isCompleted: false,
-  });
-
-  if (!spinResult) {
-    throw new AppError(
-      StatusCodes.NOT_FOUND,
-      'Spin result not found or cannot be deleted',
-    );
-  }
 };
 
 export const SpinServices = {
   spinWheel,
-  completeSpin,
-  getSpinHistory,
-  getSpinStats,
-  getPendingSpins,
-  getSpinsByCategory,
-  deleteSpinResult,
 };
