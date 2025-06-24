@@ -4,6 +4,7 @@ import catchAsync from '../../utils/catchAsync';
 import { AuthServices } from './auth.service';
 import config from '../../config';
 import sendResponse from '../../utils/sendResponse';
+import AppError from '../../errors/AppError';
 
 const loginUser = catchAsync(async (req: Request, res: Response) => {
   const result = await AuthServices.loginUser(req.body);
@@ -41,7 +42,8 @@ const refreshToken = catchAsync(async (req: Request, res: Response) => {
 });
 
 const forgotPassword = catchAsync(async (req: Request, res: Response) => {
-  const result = await AuthServices.forgotPassword(req.body);
+  const { email } = req.body;
+  const result = await AuthServices.forgetPassword(email);
 
   sendResponse(res, {
     statusCode: StatusCodes.OK,
@@ -51,8 +53,14 @@ const forgotPassword = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
-const resetPassword = catchAsync(async (req: Request, res: Response) => {
-  const result = await AuthServices.resetPassword(req.body);
+const resetPassword = catchAsync(async (req, res) => {
+  const token = req.query.token as string;
+
+  if (!token) {
+    throw new AppError(StatusCodes.BAD_REQUEST, 'Reset token is required');
+  }
+
+  const result = await AuthServices.resetPassword(req.body, token);
 
   sendResponse(res, {
     statusCode: StatusCodes.OK,

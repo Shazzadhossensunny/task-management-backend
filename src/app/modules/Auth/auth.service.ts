@@ -1,5 +1,5 @@
 import { StatusCodes } from 'http-status-codes';
-import crypto from 'crypto';
+import bcrypt from 'bcrypt';
 import AppError from '../../errors/AppError';
 import {
   TLoginUser,
@@ -7,12 +7,14 @@ import {
   TResetPassword,
   TJwtPayload,
 } from './auth.interface';
+import jwt, { JwtPayload } from 'jsonwebtoken';
 
 import config from '../../config';
 
 import type { StringValue } from 'ms';
 import { User } from '../User/user.model';
 import { createToken, verifyToken } from './auth.utlis';
+import { sendEmail } from '../../utils/email';
 
 const loginUser = async (payload: TLoginUser) => {
   const user = await User.isUserExistsByEmail(payload.email);
@@ -115,78 +117,71 @@ const refreshToken = async (token: string) => {
   };
 };
 
-const forgotPassword = async (payload: TForgotPassword) => {
-  const user = await User.findOne({ email: payload.email });
+const forgetPassword = async (email: string) => {
+  const user = await User.findOne({ email });
+  if (!user) throw new AppError(StatusCodes.NOT_FOUND, 'User not found');
 
-  if (!user) {
-    throw new AppError(StatusCodes.NOT_FOUND, 'User not found with this email');
-  }
-
-  if (!user.isActive) {
-    throw new AppError(StatusCodes.FORBIDDEN, 'User account is deactivated');
-  }
-
-  // Generate reset token
-  const resetToken = crypto.randomBytes(32).toString('hex');
-  const hashedResetToken = crypto
-    .createHash('sha256')
-    .update(resetToken)
-    .digest('hex');
-
-  // Set reset token and expiry (10 minutes)
-  user.passwordResetToken = hashedResetToken;
-  user.passwordResetExpires = new Date(Date.now() + 10 * 60 * 1000);
-  await user.save();
-
-  // In production, you would send this via email
-  // For now, returning the token (remove this in production)
-  return {
-    message: 'Password reset token sent to email',
-    resetToken, // Remove this in production
+  // Create JWT payload with EMAIL instead of userId
+  const jwtPayload = {
+    email: user.email, // Store email instead of userId
+    role: user.role,
+    userId: user._id.toString(),
   };
+
+  const resetToken = createToken(
+    jwtPayload,
+    config.jwt_access_secret as string,
+    '10m',
+  );
+
+  const resetUILink = `${config.reset_pass_ui_link}?token=${resetToken}`;
+
+  await sendEmail(user.email, resetUILink);
+
+  return { message: 'Password reset link sent to your email' };
 };
+const resetPassword = async (
+  payload: { newPassword: string }, // Remove id from payload
+  token: string,
+) => {
+  // Verify token
+  const decoded = jwt.verify(
+    token,
+    config.jwt_access_secret as string,
+  ) as JwtPayload;
 
-const resetPassword = async (payload: TResetPassword) => {
-  // Check if passwords match
-  if (payload.newPassword !== payload.confirmPassword) {
-    throw new AppError(StatusCodes.BAD_REQUEST, 'Passwords do not match');
+  // Extract email from token
+  const email = decoded.email;
+  if (!email) {
+    throw new AppError(StatusCodes.BAD_REQUEST, 'Invalid reset token');
   }
 
-  // Hash the token
-  const hashedToken = crypto
-    .createHash('sha256')
-    .update(payload.token)
-    .digest('hex');
+  // Find user by EMAIL
+  const user = await User.findOne({ email });
+  if (!user) throw new AppError(StatusCodes.NOT_FOUND, 'User not found');
 
-  // Find user with valid reset token
-  const user = await User.findOne({
-    email: payload.email,
-    passwordResetToken: hashedToken,
-    passwordResetExpires: { $gt: new Date() },
-  });
+  // Hash new password
+  const newHashedPassword = await bcrypt.hash(
+    payload.newPassword,
+    Number(config.bcrypt_salt_round),
+  );
 
-  if (!user) {
-    throw new AppError(
-      StatusCodes.BAD_REQUEST,
-      'Invalid or expired reset token',
-    );
-  }
+  // Update user
+  await User.findOneAndUpdate(
+    { email },
+    {
+      password: newHashedPassword,
+      needsPasswordChange: false,
+      passwordChangedAt: new Date(),
+    },
+  );
 
-  // Update password
-  user.password = payload.newPassword;
-  user.passwordChangedAt = new Date();
-  user.passwordResetToken = undefined;
-  user.passwordResetExpires = undefined;
-  await user.save();
-
-  return {
-    message: 'Password reset successfully',
-  };
+  return { message: 'Password reset successfully' };
 };
 
 export const AuthServices = {
   loginUser,
   refreshToken,
-  forgotPassword,
+  forgetPassword,
   resetPassword,
 };
